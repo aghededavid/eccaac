@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────
+#  ECCAAC — Policy Decision Engine
+#  Configuration Template — copy to pde.yaml and fill in values
+# ─────────────────────────────────────────────────────────
+
+server:
+  grpc_addr: "0.0.0.0:50052"
+  rest_addr:  "0.0.0.0:8080"
+
+tls:
+  enabled:   true
+  cert_file: "/etc/eccaac/certs/pde.crt"
+  key_file:  "/etc/eccaac/certs/pde.key"
+  ca_file:   "/etc/eccaac/certs/ca.crt"
+
+db:
+  dsn:               "postgres://eccaac:change_me@localhost:5432/eccaac?sslmode=disable"
+  max_open_conns:    20
+  max_idle_conns:    5
+  conn_max_lifetime: "30m"
+
+policy:
+  default_low_max:      25.0
+  default_elevated_max: 50.0
+  default_high_max:     75.0
+  default_soft_divisor: 2.0
+  escalation_window:    3       # consecutive HIGH events before auto-escalation
+  sync_interval:        "60s"
+
+session:
+  inactivity_timeout:    "30m"
+  reaper_interval:       "5m"
+  max_events_per_session: 200
+
+log:
+  level:  "info"    # debug | info | warn | error
+  format: "json"    # json | console
+
+admin:
+  require_auth: true
+  jwt_secret:   "change_me_in_production"

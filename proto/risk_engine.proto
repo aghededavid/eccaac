@@ -1,0 +1,215 @@
+// ─────────────────────────────────────────────────────────
+//  ECCAAC — Unified gRPC Contract
+//  risk_engine.proto
+//
+//  Covers two services:
+//    RiskScoringService    — Agent  →  Python Risk Engine
+//    PolicyDecisionService — Agent  →  Go PDE
+//
+//  Compile ALL stubs (run from repo root):
+//    bash scripts/compile_proto.sh
+//
+//  Python stubs  → risk_engine/proto/
+//  Go agent stubs → agent/proto/risk/
+//  Go PDE stubs   → pde/proto/risk/
+// ─────────────────────────────────────────────────────────
+
+syntax = "proto3";
+
+package eccaac.risk;
+
+option go_package = "github.com/eccaac/pde/proto/risk";
+
+// ════════════════════════════════════════════════════════
+//  SERVICE 1 — RiskScoringService
+//  Agent  ──►  Python Risk Scoring Engine  (port 50051)
+//  Carries feature vectors; returns scored risk responses.
+// ════════════════════════════════════════════════════════
+
+service RiskScoringService {
+
+  // Score a single feature vector — one-off or low-frequency checks.
+  rpc ScoreOnce (FeatureVector) returns (RiskScoreResponse);
+
+  // Bidirectional streaming — primary live session path.
+  // Agent streams one FeatureVector every 10s; engine streams RiskScoreResponse back.
+  rpc ScoreStream (stream FeatureVector) returns (stream RiskScoreResponse);
+
+  // Signal session end — triggers profile adaptation on the Python side.
+  rpc EndSession (SessionEndRequest) returns (AdaptationResponse);
+
+  // Liveness / readiness probe.
+  rpc HealthCheck (HealthRequest) returns (HealthResponse);
+}
+
+// ════════════════════════════════════════════════════════
+//  SERVICE 2 — PolicyDecisionService
+//  Agent  ──►  Go Policy Decision Engine  (port 50052)
+//  Carries risk scores; returns enforcement decisions.
+// ════════════════════════════════════════════════════════
+
+service PolicyDecisionService {
+
+  // Evaluate a single risk event — unary path for simplicity / low frequency.
+  rpc EvaluateOnce (RiskEvent) returns (PolicyDecision);
+
+  // Bidirectional streaming — primary live enforcement path.
+  // Agent forwards RiskScoreResponse events; PDE streams PolicyDecision back.
+  rpc EvaluateStream (stream RiskEvent) returns (stream PolicyDecision);
+
+  // Signal session end — PDE advances user phase, persists session summary.
+  rpc EndSession (PDESessionEndRequest) returns (PDESessionEndResponse);
+
+  // Pull current policy for this user/device — called on agent startup + sync interval.
+  rpc SyncPolicy (PolicySyncRequest) returns (PolicySyncResponse);
+
+  // Liveness probe.
+  rpc HealthCheck (HealthRequest) returns (PDEHealthResponse);
+}
+
+// ════════════════════════════════════════════════════════
+//  SHARED MESSAGES
+// ════════════════════════════════════════════════════════
+
+// ── Identity ──────────────────────────────────────────────
+
+message HealthRequest {}
+
+// ── Feature Vector (Agent → Python Engine) ───────────────
+
+message FeatureVector {
+  string user_id            = 1;   // Domain user identifier (e.g. "CORP\jsmith")
+  string device_id          = 2;   // Device hostname / fingerprint prefix
+  string session_id         = 3;   // Active session UUID
+  repeated float features   = 4;   // 24-dimensional feature vector (ordered per FEATURE_INDEX)
+  int64  timestamp          = 5;   // Unix epoch seconds
+}
+
+// ── Risk Score Response (Python Engine → Agent) ──────────
+
+message RiskScoreResponse {
+  string user_id              = 1;
+  string session_id           = 2;
+  float  risk_score           = 3;   // 0–100, phase-adjusted
+  float  raw_risk_score       = 4;   // 0–100, before phase adjustment
+  string risk_level           = 5;   // LOW | ELEVATED | HIGH | CRITICAL
+  repeated string enforcement = 6;   // ALLOW | STEP_UP_AUTH | THROTTLE | LOCK_SESSION | ALERT_ADMIN
+
+  // Component breakdown
+  float  behavioral_deviation = 7;   // 0–50 pts
+  float  context_deviation    = 8;   // 0–30 pts
+  float  device_risk          = 9;   // 0–20 pts
+
+  // Model output
+  float  similarity_score     = 10;  // 0.0–1.0 (1.0 = identical to profile)
+  string classification       = 11;  // LEGITIMATE | ATTACK | UNKNOWN
+  float  confidence           = 12;  // 0.0–1.0
+
+  string phase                = 13;  // OBSERVATION | SOFT | FULL
+  bool   sequence_ready       = 14;  // True if Siamese inference ran this cycle
+  int64  timestamp            = 15;
+  float  eval_time_ms         = 16;
+}
+
+// ── Session End (Agent → Python Engine) ──────────────────
+
+message SessionEndRequest {
+  string user_id        = 1;
+  string session_id     = 2;
+  float  avg_risk_score = 3;
+  bool   was_flagged    = 4;   // True if any CRITICAL event occurred in the session
+}
+
+message AdaptationResponse {
+  bool   adapted = 1;   // True if continuous fine-tuning was triggered
+  string reason  = 2;   // "adapted" | "blocked" | "skipped" | reason string
+}
+
+// ── Python Engine Health ──────────────────────────────────
+
+message HealthResponse {
+  bool   healthy         = 1;
+  bool   model_loaded    = 2;
+  int32  active_sessions = 3;
+  float  uptime_s        = 4;
+}
+
+// ════════════════════════════════════════════════════════
+//  PDE-SPECIFIC MESSAGES
+// ════════════════════════════════════════════════════════
+
+// ── Risk Event (Agent → PDE) ─────────────────────────────
+// Forwarded from a RiskScoreResponse — the agent pipes scores straight to the PDE.
+
+message RiskEvent {
+  string user_id              = 1;
+  string device_id            = 2;
+  string session_id           = 3;
+  float  risk_score           = 4;
+  float  raw_risk_score       = 5;
+  float  behavioral_deviation = 6;
+  float  context_deviation    = 7;
+  float  device_risk          = 8;
+  float  similarity_score     = 9;
+  string classification       = 10;
+  float  confidence           = 11;
+  string phase                = 12;
+  bool   sequence_ready       = 13;
+  int64  timestamp            = 14;
+  float  eval_time_ms         = 15;
+}
+
+// ── Policy Decision (PDE → Agent) ────────────────────────
+
+message PolicyDecision {
+  string session_id           = 1;
+  string user_id              = 2;
+  float  risk_score           = 3;   // Phase-adjusted score used for this decision
+  string risk_level           = 4;   // LOW | ELEVATED | HIGH | CRITICAL
+  repeated string actions     = 5;   // Enforcement actions to apply
+  string policy_id            = 6;   // Which policy rule / group fired
+  string reason               = 7;   // Human-readable explanation
+  bool   escalated            = 8;   // True if escalation rules fired
+  int64  timestamp            = 9;
+}
+
+// ── PDE Session End ───────────────────────────────────────
+
+message PDESessionEndRequest {
+  string user_id        = 1;
+  string session_id     = 2;
+  float  avg_risk_score = 3;
+  bool   was_flagged    = 4;
+}
+
+message PDESessionEndResponse {
+  bool   accepted   = 1;
+  string new_phase  = 2;   // Phase the user is now in after this session
+  string reason     = 3;
+}
+
+// ── Policy Sync ───────────────────────────────────────────
+
+message PolicySyncRequest {
+  string user_id   = 1;
+  string device_id = 2;
+}
+
+message PolicySyncResponse {
+  string policy_group_id   = 1;
+  string policy_group_name = 2;
+  float  low_max           = 3;
+  float  elevated_max      = 4;
+  float  high_max          = 5;
+  float  soft_divisor      = 6;
+  int64  sync_interval_s   = 7;   // How often to re-sync (seconds)
+  int64  issued_at         = 8;   // Unix epoch when this policy was issued
+}
+
+// ── PDE Health ────────────────────────────────────────────
+
+message PDEHealthResponse {
+  bool   healthy         = 1;
+  int32  active_sessions = 2;
+  float  uptime_s        = 3;
+}

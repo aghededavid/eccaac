@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────
+#  ECCAAC — Risk Scoring Engine
+#  Python Service Dependencies
+#  Python >= 3.11 required
+# ─────────────────────────────────────────────────────────
+
+# ── Deep Learning ─────────────────────────────────────────
+# PyTorch — LSTM Siamese Network training and inference
+# Install CPU-only for on-premise servers without GPU:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# Install with CUDA 12.1 for GPU acceleration:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1.0
+
+# ── Numerical & ML Utilities ──────────────────────────────
+numpy>=1.26.0
+scikit-learn>=1.3.0          # Preprocessing utilities, metrics
+
+# ── gRPC ──────────────────────────────────────────────────
+grpcio>=1.59.0               # Core gRPC runtime
+grpcio-tools>=1.59.0         # protoc compiler (generate Python stubs from .proto)
+protobuf>=4.25.0             # Protocol Buffers serialization
+
+# ── Database ──────────────────────────────────────────────
+psycopg2-binary>=2.9.9       # PostgreSQL driver (user stats, audit logs)
+sqlalchemy>=2.0.0            # ORM for model/profile metadata
+
+# ── Logging & Observability ───────────────────────────────
+structlog>=23.2.0            # Structured JSON logging
+python-json-logger>=2.0.7    # JSON log formatter
+
+# ── Configuration ─────────────────────────────────────────
+python-dotenv>=1.0.0         # Load .env files for secrets/config
+pydantic>=2.5.0              # Config validation and settings management
+pydantic-settings>=2.1.0     # Settings from env vars + .env files
+
+# ── Testing ───────────────────────────────────────────────
+pytest>=7.4.0
+pytest-asyncio>=0.21.0       # Async test support for gRPC handlers
+pytest-cov>=4.1.0            # Coverage reporting
+
+# ── Development utilities ─────────────────────────────────
+black>=23.0.0                # Code formatter
+ruff>=0.1.0                  # Fast linter (replaces flake8, isort, etc.)
+mypy>=1.7.0                  # Static type checker

@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────
+#  ECCAAC — .gitignore
+# ─────────────────────────────────────────────────────────
+
+# Secrets — never commit these
+.env
+*.pem
+*.key
+*.crt
+certs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# PyTorch model weights (large files — use DVC or artifact storage)
+checkpoints/
+*.pt
+*.pth
+*.onnx
+
+# User data — never commit (contains PII)
+user_stats/
+profiles/
+
+# Generated proto stubs (regenerate with compile_proto.sh)
+risk_engine/proto/*_pb2.py
+risk_engine/proto/*_pb2_grpc.py
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb

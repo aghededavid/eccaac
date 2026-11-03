@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────────
+#  ECCAAC — Risk Scoring Engine
+#  Development-Only Dependencies
+#  Install with: pip install -r requirements-dev.txt
+# ─────────────────────────────────────────────────────────
+
+-r requirements.txt
+
+# ── Notebooks & Experimentation ───────────────────────────
+jupyter>=1.0.0               # Interactive model experimentation
+matplotlib>=3.8.0            # Training curve plots
+seaborn>=0.13.0              # Confusion matrix and score distribution plots
+
+# ── Profiling & Debugging ─────────────────────────────────
+memory-profiler>=0.61.0      # Memory usage profiling
+line-profiler>=4.1.0         # Line-by-line performance profiling
+ipdb>=0.13.0                 # Interactive debugger
+
+# ── Load Testing ──────────────────────────────────────────
+grpcurl>=0.1.0               # gRPC endpoint testing (install separately as binary)
+locust>=2.19.0               # Load testing the gRPC service
